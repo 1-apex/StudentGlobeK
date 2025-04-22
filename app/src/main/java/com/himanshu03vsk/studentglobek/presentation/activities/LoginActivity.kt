@@ -7,6 +7,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -90,6 +91,17 @@ fun LoginScreen(auth: FirebaseAuth, activity: ComponentActivity) {
 //        }) {
 //            Text("Register")
 //        }
+
+        Text(
+            text = "Forgot Password?",
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clickable {
+                    val intent = Intent(context, ResetPasswordActivity::class.java)
+                    context.startActivity(intent)
+                }
+        )
+
     }
 }
 

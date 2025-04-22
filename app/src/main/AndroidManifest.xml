@@ -22,16 +22,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:theme="@style/Theme.StudentGlobeK">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+<!--        <activity-->
+<!--            android:name=".MainActivity"-->
+<!--            android:exported="true"-->
+<!--            android:theme="@style/Theme.StudentGlobeK">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.MAIN" />-->
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity> <!-- define all the activities here -->
+<!--                <category android:name="android.intent.category.LAUNCHER" />-->
+<!--            </intent-filter>-->
+<!--        </activity> &lt;!&ndash; define all the activities here &ndash;&gt;-->
         <activity android:name=".presentation.activities.CreateChatroomActivity" />
         <activity android:name=".presentation.activities.CreateEventActivity" />
         <activity android:name=".presentation.activities.EditProfileActivity" />
@@ -44,6 +44,7 @@
         <activity android:name=".presentation.activities.VerifyAccountActivity" />
         <activity android:name=".presentation.activities.ViewChatroomsActivity" />
         <activity android:name=".presentation.activities.ViewEventsActivity" />
+        <activity android:name=".presentation.activities.ResetPasswordActivity" />
         <activity android:name=".presentation.activities.LandingActivity" />
     </application>
 

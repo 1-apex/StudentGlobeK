@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -44,6 +45,7 @@ class JoinedChatroomsActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
+    val uid = FirebaseAuth.getInstance().currentUser?.uid;
     val chatrooms by viewModel.chatrooms.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -55,7 +57,7 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
 
     // Fetch registered events
     LaunchedEffect(true) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@LaunchedEffect
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@LaunchedEffect;
         val snapshot = FirebaseFirestore.getInstance().collection("events").get().await()
         registeredEvents = snapshot.documents.mapNotNull { doc ->
             val event = doc.toObject(Event::class.java)
@@ -69,7 +71,11 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
         drawerContent = {
             // Make the navigation drawer content scrollable
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState())
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .verticalScroll(rememberScrollState())
+                    .padding(WindowInsets.systemBars.asPaddingValues())
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
@@ -89,7 +95,7 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
                     "User Profile" to EditProfileActivity::class.java,
                     "Home Page" to HomePageActivity::class.java,
                     "Chatroom" to ChatroomActivity::class.java,
-                    "Event" to EventActivity::class.java,
+//                    "Event" to EventActivity::class.java,
                     "Login" to LoginActivity::class.java,
                     "Search Peers" to SearchPeersActivity::class.java,
                     "Sign Up" to SignUpActivity::class.java,
@@ -147,7 +153,7 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
 
                 // Joined Chatrooms Section
                 item {
-                    Text("Your Chatrooms", style = MaterialTheme.typography.titleMedium)
+                    Text("Joined Chatrooms", style = MaterialTheme.typography.titleMedium)
                     if (isLoading) {
                         CircularProgressIndicator()
                     } else if (chatrooms.isEmpty()) {
@@ -164,11 +170,82 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
                 // Registered Events Section
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Your Events", style = MaterialTheme.typography.titleMedium)
+                    Text("Registered Events", style = MaterialTheme.typography.titleMedium)
                 }
 
                 items(registeredEvents) { event ->
                     EventCard(event = event)
+                }
+
+                // Created Chatrooms Section
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Created Chatrooms", style = MaterialTheme.typography.titleMedium)
+
+                    val uid = FirebaseAuth.getInstance().currentUser?.uid
+                    val createdChatrooms = remember { mutableStateListOf<Chatroom>() }
+
+                    LaunchedEffect(uid) {
+                        uid?.let {
+                            FirebaseFirestore.getInstance()
+                                .collection("chatrooms")
+                                .whereEqualTo("ownerId", uid)
+                                .addSnapshotListener { snapshot, error ->
+                                    if (error != null || snapshot == null) return@addSnapshotListener
+
+                                    val chats = snapshot.documents.mapNotNull { doc ->
+                                        doc.toObject(Chatroom::class.java)?.copy(id = doc.id)
+                                    }
+
+                                    createdChatrooms.clear()
+                                    createdChatrooms.addAll(chats)
+                                }
+                        }
+                    }
+
+                    if (createdChatrooms.isEmpty()) {
+                        Text("No created chatrooms.")
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(createdChatrooms) { chatroom ->
+                                ChatroomCardCreated(chatroom = chatroom)
+                            }
+                        }
+                    }
+                }
+
+                // Created Events Section
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Created Events", style = MaterialTheme.typography.titleMedium)
+
+                    val createdEvents = remember { mutableStateListOf<Event>() }
+
+                    LaunchedEffect(uid) {
+                        uid?.let {
+                            FirebaseFirestore.getInstance()
+                                .collection("events")
+                                .whereEqualTo("ownerId", uid)
+                                .addSnapshotListener { snapshot, error ->
+                                    if (error != null || snapshot == null) return@addSnapshotListener
+
+                                    val events = snapshot.documents.mapNotNull { doc ->
+                                        doc.toObject(Event::class.java)?.copy(eventId = doc.id)
+                                    }
+
+                                    createdEvents.clear()
+                                    createdEvents.addAll(events)
+                                }
+                        }
+                    }
+
+                    if (createdEvents.isEmpty()) {
+                        Text("No created events.")
+                    } else {
+                        this@LazyColumn.items(createdEvents) { event ->
+                            EventCardCreated(event = event)
+                        }
+                    }
                 }
             }
         }
