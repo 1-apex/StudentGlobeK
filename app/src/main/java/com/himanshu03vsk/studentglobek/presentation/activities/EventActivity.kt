@@ -1,5 +1,6 @@
 package com.himanshu03vsk.studentglobek.presentation.activities
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -95,10 +96,19 @@ fun EventDetailScreen(
                                 text = { Text("Edit Event") },
                                 onClick = {
                                     showEditMenu = false
-                                    Toast.makeText(context, "Edit Event clicked", Toast.LENGTH_SHORT).show()
-                                    // Navigate to Edit screen here if needed
+                                    val intent = Intent(context, EditEventActivity::class.java).apply {
+                                        putExtra("eventId", eventId)
+                                        putExtra("eventName", eventName)
+                                        putExtra("description", description)
+                                        putExtra("startDate", startDate)
+                                        putExtra("endDate", endDate)
+                                        putExtra("major", major)
+                                        putExtra("department", department)
+                                    }
+                                    context.startActivity(intent)
                                 }
                             )
+
                             DropdownMenuItem(
                                 text = { Text("Delete Event") },
                                 onClick = {
