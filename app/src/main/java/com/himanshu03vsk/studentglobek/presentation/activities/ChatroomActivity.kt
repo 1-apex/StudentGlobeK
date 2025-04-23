@@ -2,6 +2,7 @@ package com.himanshu03vsk.studentglobek.presentation.activities
 
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -93,13 +94,42 @@ fun ChatroomScreen(
     onLeave: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val context = LocalContext.current
-    val db = FirebaseFirestore.getInstance()
-    val auth = FirebaseAuth.getInstance()
-    val uid = auth.currentUser?.uid ?: ""
+
     var isOwner by remember { mutableStateOf(false) }
     val chatService = remember { ChatService() }
     val mediaUploadService = remember { MediaUploadService() }
+
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
+
+    // Get the current user's UID (userID from Firebase Authentication)
+    val uid = auth.currentUser?.uid ?: ""
+
+    var name by remember { mutableStateOf("") } // Variable to hold the name
+
+    // Fetch the user's details from Firestore
+    val userRef = db.collection("users").document(uid)
+
+    userRef.get().addOnSuccessListener { document ->
+        if (document.exists()) {
+            // Retrieve the user's data from the Firestore document
+            name = document.getString("name") ?: "Unknown User"
+            val email = document.getString("email") ?: "Unknown Email"
+            val department = document.getString("department") ?: "Unknown Department"
+            val major = document.getString("major") ?: "Unknown Major"
+            val phNumber = document.getString("phNumber") ?: "Unknown Phone Number"
+
+            // You can now use these values for other purposes if needed
+            Log.d("User Info", "Name: $name, Email: $email, Department: $department, Major: $major, Phone: $phNumber")
+        } else {
+            // Document doesn't exist, handle the case
+            Log.d("User Info", "No user found with this UID.")
+        }
+    }.addOnFailureListener { exception ->
+        // Handle error, failed to fetch data from Firestore
+        Log.d("User Info", "Error getting user data: ${exception.message}")
+    }
 
     var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
     var inputMessage by remember { mutableStateOf("") }
@@ -115,7 +145,7 @@ fun ChatroomScreen(
                     chatroomId = chatroomId,
                     mediaUri = uri,
                     onMediaUploaded = { media ->
-//                        ChatService().sendMedia(media)
+                        // Handle media upload callback here if needed
                     }
                 )
             }
@@ -182,11 +212,12 @@ fun ChatroomScreen(
                         if (inputMessage.isNotBlank()) {
                             val msg = Message(
                                 senderId = uid,
+                                senderName = name,  // Use the fetched name here
                                 chatroomId = chatroomId,
                                 content = inputMessage.trim()
                             )
                             chatService.sendMessage(msg)
-                            inputMessage = ""
+                            inputMessage = "" // Clear the input field after sending
                         }
                     },
                     modifier = Modifier.padding(start = 4.dp)
@@ -205,6 +236,7 @@ fun ChatroomScreen(
                 ChatBubble(
                     message = message.content,
                     sender = message.senderId,
+                    senderName = message.senderName,
                     isCurrentUser = message.senderId == uid
                 )
             }

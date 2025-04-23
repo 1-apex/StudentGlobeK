@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 fun ChatBubble(
     message: String,
     sender: String,
+    senderName: String,
     isCurrentUser: Boolean
 ) {
     val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
@@ -38,7 +39,7 @@ fun ChatBubble(
                 .align(alignment)
         ) {
             Text(
-                text = sender,
+                text = senderName,
                 style = TextStyle(fontSize = 12.sp, color = textColor),
                 modifier = Modifier.padding(bottom = 4.dp)
             )
@@ -48,10 +49,4 @@ fun ChatBubble(
             )
         }
     }
-}
-
-@Preview
-@Composable
-fun PreviewChatBubble() {
-    ChatBubble(message = "Hello, this is a message!", sender = "John Doe", isCurrentUser = true)
 }

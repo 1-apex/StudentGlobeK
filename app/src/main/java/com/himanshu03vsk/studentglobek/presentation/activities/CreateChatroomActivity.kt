@@ -12,7 +12,10 @@ import androidx.compose.foundation.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -36,7 +39,6 @@ class CreateChatroomActivity : ComponentActivity() {
         }
     }
 }
-
 @Composable
 fun CreateChatroomScreen(modifier: Modifier) {
     val context = LocalContext.current
@@ -49,16 +51,21 @@ fun CreateChatroomScreen(modifier: Modifier) {
     var selectedChatroomType by remember { mutableStateOf("Semester") }
     var isLoading by remember { mutableStateOf(false) }
 
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    // Wrap the screen layout to prevent elements from shifting when the keyboard is open
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(16.dp)
+            .imePadding(), // Ensures padding for keyboard space
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         TopAppBarComponent("Create New Chatroom")
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Chatroom name text field
         TextFieldInputFunction(
             label = "Chatroom Name",
             value = chatroomName,
@@ -67,6 +74,7 @@ fun CreateChatroomScreen(modifier: Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Chatroom type radio buttons
         ChatroomTypeRadioButtons(
             selectedOption = selectedChatroomType,
             onOptionSelected = { selectedChatroomType = it }
@@ -74,6 +82,7 @@ fun CreateChatroomScreen(modifier: Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Major text field
         TextFieldInputFunction(
             label = "Major",
             value = major,
@@ -82,18 +91,21 @@ fun CreateChatroomScreen(modifier: Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Department text field
         TextFieldInputFunction(
             label = "Department",
             value = department,
             onValueChange = { department = it }
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(1f)) // Flexible space to push button to bottom
 
+        // Create chatroom button
         Button(
             onClick = {
-                if (validateInput(chatroomName, major, department))  {
-                    createChatroom(context,
+                if (validateInput(chatroomName, major, department)) {
+                    createChatroom(
+                        context,
                         firestore = firestore,
                         auth = auth,
                         chatroomName = chatroomName,
@@ -102,6 +114,7 @@ fun CreateChatroomScreen(modifier: Modifier) {
                         department = department,
                         onSuccess = {
                             isLoading = false
+                            keyboardController?.hide() // Hide keyboard after successful creation
                             (context as? ComponentActivity)?.finish()
                         },
                         onError = { error ->
