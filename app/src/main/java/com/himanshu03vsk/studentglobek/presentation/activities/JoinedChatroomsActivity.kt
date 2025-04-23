@@ -175,17 +175,17 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
 fun DrawerMenu(onItemClick: (String, Class<*>) -> Unit) {
     val activity = LocalContext.current as? Activity
     val navItems = listOf(
-        "Landing Page" to LandingActivity::class.java,
+//        "Landing Page" to LandingActivity::class.java,
         "Create Chatroom" to CreateChatroomActivity::class.java,
         "Create Event" to CreateEventActivity::class.java,
-        "Joined Chatrooms" to JoinedChatroomsActivity::class.java,
-        "User Profile" to EditProfileActivity::class.java,
-        "Home Page" to HomePageActivity::class.java,
-        "Chatroom" to ChatroomActivity::class.java,
-        "Login" to LoginActivity::class.java,
+//        "Joined Chatrooms" to JoinedChatroomsActivity::class.java,
+//        "User Profile" to EditProfileActivity::class.java,
+//        "Home Page" to HomePageActivity::class.java,
+//        "Chatroom" to ChatroomActivity::class.java,
+//        "Login" to LoginActivity::class.java,
         "Search Peers" to SearchPeersActivity::class.java,
-        "Sign Up" to SignUpActivity::class.java,
-        "Verify Account" to VerifyAccountActivity::class.java,
+//        "Sign Up" to SignUpActivity::class.java,
+//        "Verify Account" to VerifyAccountActivity::class.java,
         "View Chatrooms" to ViewChatroomsActivity::class.java,
         "View Events" to ViewEventsActivity::class.java
     )
