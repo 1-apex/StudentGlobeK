@@ -77,6 +77,7 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.appcompat)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.firebase.storage.ktx)
 
     // Testing dependencies
     testImplementation(libs.junit)

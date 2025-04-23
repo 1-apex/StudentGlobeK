@@ -70,12 +70,6 @@ class ChatRoomsViewModel : ViewModel() {
         }
     }
 
-
-
-
-
-
-
     private fun DocumentSnapshot.toChatroom(): Chatroom {
         @Suppress("UNCHECKED_CAST")
 

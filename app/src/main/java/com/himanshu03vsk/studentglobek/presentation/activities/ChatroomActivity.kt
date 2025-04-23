@@ -1,16 +1,22 @@
 package com.himanshu03vsk.studentglobek.presentation.activities
 
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -19,9 +25,12 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.himanshu03vsk.studentglobek.domain.model.Message
 import com.himanshu03vsk.studentglobek.domain.usecase.ChatService
+import com.himanshu03vsk.studentglobek.domain.usecase.MediaUploadService
 import com.himanshu03vsk.studentglobek.ui.components.ChatBubble
 import com.himanshu03vsk.studentglobek.ui.theme.StudentGlobeKTheme
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
@@ -84,34 +93,51 @@ fun ChatroomScreen(
     onLeave: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val uid = auth.currentUser?.uid ?: ""
     var isOwner by remember { mutableStateOf(false) }
     val chatService = remember { ChatService() }
+    val mediaUploadService = remember { MediaUploadService() }
 
     var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
     var inputMessage by remember { mutableStateOf("") }
+
+    // Media picker launcher (must be placed at composable scope)
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            Toast.makeText(context, "Uploading media...", Toast.LENGTH_SHORT).show()
+            CoroutineScope(Dispatchers.IO).launch {
+                mediaUploadService.uploadMediaToChatroom(
+                    chatroomId = chatroomId,
+                    mediaUri = uri,
+                    onMediaUploaded = { media ->
+//                        ChatService().sendMedia(media)
+                    }
+                )
+            }
+        }
+    }
 
     LaunchedEffect(chatroomId) {
         // Check ownership
         val doc = db.collection("chatrooms").document(chatroomId).get().await()
         isOwner = doc.getString("ownerId") == uid
 
-        // Fetch chat history from backend
+        // Fetch chat history
         messages = fetchChatHistory(chatroomId)
 
-        // Listen to incoming messages via socket
+        // Connect to chat socket
         chatService.connectToChatServer(chatroomId) { incomingMessage ->
-            // Only update the message list when a new message arrives
             messages = messages + incomingMessage
         }
     }
 
     DisposableEffect(Unit) {
-        onDispose {
-            chatService.disconnect()
-        }
+        onDispose { chatService.disconnect() }
     }
 
     Scaffold(
@@ -140,6 +166,17 @@ fun ChatroomScreen(
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Type a message...") }
                 )
+                IconButton(
+                    onClick = {
+                        launcher.launch("*/*") // Launch file picker
+                    },
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Attach Media"
+                    )
+                }
                 Button(
                     onClick = {
                         if (inputMessage.isNotBlank()) {
@@ -148,12 +185,11 @@ fun ChatroomScreen(
                                 chatroomId = chatroomId,
                                 content = inputMessage.trim()
                             )
-                            // Send the message via socket, but don't add it here manually
                             chatService.sendMessage(msg)
-                            inputMessage = ""  // Clear the input field
+                            inputMessage = ""
                         }
                     },
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = 4.dp)
                 ) {
                     Text("Send")
                 }
@@ -175,6 +211,7 @@ fun ChatroomScreen(
         }
     }
 }
+
 
 suspend fun fetchChatHistory(chatroomId: String): List<Message> {
     return try {

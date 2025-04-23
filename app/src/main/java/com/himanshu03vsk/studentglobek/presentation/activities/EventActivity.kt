@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -19,6 +20,9 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.himanshu03vsk.studentglobek.ui.theme.StudentGlobeKTheme
 import kotlinx.coroutines.tasks.await
+import java.security.Timestamp
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class EventActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,7 +54,6 @@ class EventActivity : ComponentActivity() {
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailScreen(
@@ -70,7 +73,6 @@ fun EventDetailScreen(
     var showEditMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // Check if user already registered
     LaunchedEffect(eventId) {
         currentUserId?.let { uid ->
             val doc = FirebaseFirestore.getInstance().collection("events").document(eventId).get().await()
@@ -78,19 +80,32 @@ fun EventDetailScreen(
             isRegistered = uid in registeredUsers
         }
     }
+
+    // Format the date for better readability
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+//    val formattedStartDate = formatDate(startDate, dateFormat)
+//    val formattedEndDate = formatDate(endDate, dateFormat)
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "Event Details") },
+                title = {
+                    Text(
+                        text = "Event Details",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
                 actions = {
                     if (currentUserId == ownerId) {
                         IconButton(onClick = { showEditMenu = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Edit/Delete")
                         }
 
+                        // Smooth dropdown animation
                         DropdownMenu(
                             expanded = showEditMenu,
-                            onDismissRequest = { showEditMenu = false }
+                            onDismissRequest = { showEditMenu = false },
+                            modifier = Modifier.animateContentSize()
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Edit Event") },
@@ -126,20 +141,51 @@ fun EventDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(16.dp)
         ) {
-            Column {
-                Text(text = eventName, style = MaterialTheme.typography.headlineMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Major: $major")
-                Text("Department: $department")
-                Text("Start: $startDate")
-                Text("End: $endDate")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Description:\n$description")
+            // Event Name
+            Text(
+                text = eventName,
+                style = MaterialTheme.typography.headlineLarge,  // Increased size for title
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // Major and Department under the event title
+            InfoRow(label = "Major", value = major)
+            InfoRow(label = "Department", value = department)
+
+            // Start Date and End Date
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                InfoRow(label = "Start Date", value = startDate)
+                Spacer(modifier = Modifier.width(16.dp))
+                InfoRow(label = "End Date", value = endDate)
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Description as a separate background card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "Description",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Register Button
             if (!isRegistered && currentUserId != ownerId) {
                 Button(
                     onClick = {
@@ -161,20 +207,25 @@ fun EventDetailScreen(
                         }
                     },
                     enabled = !isRegistering,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
                 ) {
                     Text(text = if (isRegistering) "Registering..." else "Register")
                 }
             } else if (currentUserId != ownerId) {
                 Text(
                     text = "You are registered for this event.",
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    color = MaterialTheme.colorScheme.primary
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = 16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyLarge
                 )
             }
         }
 
-        // Delete Confirmation Dialog
+        // Delete confirmation dialog
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
@@ -204,5 +255,35 @@ fun EventDetailScreen(
                 }
             )
         }
+    }
+}
+
+// Utility function to print date as-is based on its type (String or Timestamp)
+//fun printDateAsIs(date: Any): String {
+//    return when (date) {
+//        is Timestamp -> {
+//            // If it's a Firebase Timestamp, convert it to a String (raw representation)
+//            date.toDate().toString()
+//        }
+//        is String -> {
+//            // If it's already a string, return it as is
+//            date
+//        }
+//        else -> date.toString() // Default case, just return the string representation
+//    }
+//}
+
+@Composable
+fun InfoRow(label: String, value: String) {
+    Row(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(
+            text = "$label: ",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
