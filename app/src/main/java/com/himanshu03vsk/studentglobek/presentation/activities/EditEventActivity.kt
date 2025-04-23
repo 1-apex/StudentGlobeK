@@ -1,5 +1,6 @@
 package com.himanshu03vsk.studentglobek.presentation.activities
 
+import android.app.DatePickerDialog
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -12,6 +13,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.himanshu03vsk.studentglobek.ui.theme.StudentGlobeKTheme
+import java.text.SimpleDateFormat
+import java.util.*
 
 class EditEventActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,7 +43,6 @@ class EditEventActivity : ComponentActivity() {
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditEventScreen(
@@ -62,6 +64,27 @@ fun EditEventScreen(
     var dept by remember { mutableStateOf(department) }
     var isSaving by remember { mutableStateOf(false) }
 
+    val dateFormat = SimpleDateFormat("MM-dd-yyyy", Locale.US)
+
+    // Function to show DatePicker dialog
+    fun showDatePickerDialog(onDateSet: (String) -> Unit) {
+        val calendar = Calendar.getInstance()
+        val datePickerDialog = DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                val date = Calendar.getInstance().apply {
+                    set(year, month, dayOfMonth)
+                }.time
+                val formattedDate = dateFormat.format(date) // Format the date
+                onDateSet(formattedDate)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+        datePickerDialog.show()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Edit Event") })
@@ -74,15 +97,65 @@ fun EditEventScreen(
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Event Name") })
-            OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Description") })
-            OutlinedTextField(value = start, onValueChange = { start = it }, label = { Text("Start Date") })
-            OutlinedTextField(value = end, onValueChange = { end = it }, label = { Text("End Date") })
-            OutlinedTextField(value = maj, onValueChange = { maj = it }, label = { Text("Major") })
-            OutlinedTextField(value = dept, onValueChange = { dept = it }, label = { Text("Department") })
+            // Event Name Field
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Event Name") },
+                modifier = Modifier.fillMaxWidth() // Ensure full width
+            )
+
+            // Description Field
+            OutlinedTextField(
+                value = desc,
+                onValueChange = { desc = it },
+                label = { Text("Description") },
+                modifier = Modifier.fillMaxWidth() // Ensure full width
+            )
+
+            // Start Date Picker Button
+            Button(
+                onClick = {
+                    showDatePickerDialog { formattedDate ->
+                        start = formattedDate
+                    }
+                },
+                modifier = Modifier.fillMaxWidth() // Ensure full width
+            ) {
+                Text(text = if (start.isEmpty()) "Select Start Date" else "Start Date: $start")
+            }
+
+            // End Date Picker Button
+            Button(
+                onClick = {
+                    showDatePickerDialog { formattedDate ->
+                        end = formattedDate
+                    }
+                },
+                modifier = Modifier.fillMaxWidth() // Ensure full width
+            ) {
+                Text(text = if (end.isEmpty()) "Select End Date" else "End Date: $end")
+            }
+
+            // Major Field
+            OutlinedTextField(
+                value = maj,
+                onValueChange = { maj = it },
+                label = { Text("Major") },
+                modifier = Modifier.fillMaxWidth() // Ensure full width
+            )
+
+            // Department Field
+            OutlinedTextField(
+                value = dept,
+                onValueChange = { dept = it },
+                label = { Text("Department") },
+                modifier = Modifier.fillMaxWidth() // Ensure full width
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Save Changes Button
             Button(
                 onClick = {
                     isSaving = true
@@ -110,7 +183,7 @@ fun EditEventScreen(
                         }
                 },
                 enabled = !isSaving,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth() // Ensure full width
             ) {
                 Text(if (isSaving) "Saving..." else "Save Changes")
             }
