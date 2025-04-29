@@ -1,6 +1,7 @@
 package com.himanshu03vsk.studentglobek.presentation.components
 
 import android.content.Intent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -17,22 +18,49 @@ fun ChatroomCardCreated(chatroom: Chatroom) {
 
     Card(
         modifier = Modifier
-            .width(250.dp)
+            .width(260.dp)
+            .padding(4.dp)
+            .animateContentSize()
             .clickable {
                 val intent = Intent(context, ChatroomActivity::class.java).apply {
                     putExtra("chatroomId", chatroom.id)
-                    putExtra("chatroomName", chatroom.name)
+                    putExtra("chatroomName", chatroom.chatroomName)
                 }
                 context.startActivity(intent)
             },
-        elevation = CardDefaults.cardElevation(6.dp)
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = chatroom.name, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "Major: ${chatroom.major}", style = MaterialTheme.typography.bodySmall)
-            Text(text = "Department: ${chatroom.department}", style = MaterialTheme.typography.bodySmall)
-            Text(text = "Created by You", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = chatroom.chatroomName,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = "Major: ${chatroom.major}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = "Department: ${chatroom.department}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = "Created by You",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.tertiary
+            )
         }
     }
 }

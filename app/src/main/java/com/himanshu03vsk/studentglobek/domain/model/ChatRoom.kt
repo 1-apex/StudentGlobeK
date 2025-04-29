@@ -4,11 +4,11 @@ import com.google.firebase.Timestamp
 
 data class Chatroom(
     val id: String = "",
-    val name: String = "",
+    val chatroomName: String = "",
     val type: String = "Semester",
     val ownerId: String = "",
     val members: List<String> = emptyList(),
-    val membersSize: Int = members.size,
+//    val membersSize: Int = members.size,
     val major: String = "",
     val department: String = "",
     val createdAt: Timestamp = Timestamp.now(),

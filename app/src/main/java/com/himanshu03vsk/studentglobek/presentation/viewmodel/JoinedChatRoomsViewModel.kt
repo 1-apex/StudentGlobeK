@@ -1,12 +1,10 @@
 package com.himanshu03vsk.studentglobek.presentation.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.himanshu03vsk.studentglobek.domain.model.Chatroom
@@ -70,7 +68,7 @@ class JoinedChatRoomsViewModel : ViewModel() {
 
         return Chatroom(
             id = id,
-            name = getString("chatroomName") ?: "",
+            chatroomName = getString("chatroomName") ?: "",
             type = getString("chatroomType") ?: "Semester",
             ownerId = getString("ownerId") ?: "",
             members = get("members") as? List<String> ?: emptyList(),

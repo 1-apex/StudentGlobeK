@@ -2,7 +2,6 @@ package com.himanshu03vsk.studentglobek.presentation.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
@@ -12,7 +11,6 @@ import com.himanshu03vsk.studentglobek.domain.model.Chatroom
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 class SearchChatroomsViewModel : ViewModel() {
 
@@ -62,7 +60,7 @@ class SearchChatroomsViewModel : ViewModel() {
 
     fun searchChatrooms(query: String) {
         val filtered = _chatrooms.value.filter {
-            it.name.contains(query, ignoreCase = true)
+            it.chatroomName.contains(query, ignoreCase = true)
         }
         _chatrooms.value = filtered
     }
@@ -86,7 +84,7 @@ class SearchChatroomsViewModel : ViewModel() {
         @Suppress("UNCHECKED_CAST")
         return Chatroom(
             id = id,
-            name = getString("chatroomName") ?: "",
+            chatroomName = getString("chatroomName") ?: "",
             type = getString("chatroomType") ?: "Semester",
             ownerId = getString("ownerId") ?: "",
             members = get("members") as? List<String> ?: emptyList(),
