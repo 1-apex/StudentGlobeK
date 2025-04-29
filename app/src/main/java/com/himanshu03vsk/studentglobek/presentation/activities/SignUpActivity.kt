@@ -184,7 +184,7 @@ private fun registerUser(
             if (task.isSuccessful) {
                 val user = auth.currentUser
                 user?.let {
-                    saveUserData(auth, userName, name.toTitleCase(), email, major.toTitleCase(), department.toTitleCase(), phoneNumber)
+                    saveUserData(auth, userName, name, email, major, department, phoneNumber)
                 }
                 Toast.makeText(context, "Registration successful", Toast.LENGTH_SHORT).show()
                 context.startActivity(Intent(context, LoginActivity::class.java))
@@ -209,10 +209,10 @@ private fun saveUserData(auth: FirebaseAuth, userName: String, name: String, ema
         val user = hashMapOf(
             "userName" to userName,
             "userID" to currentUser.uid,
-            "name" to name,
+            "name" to name.toTitleCase(),
             "email" to email,
-            "major" to major,
-            "department" to department,
+            "major" to major.toTitleCase(),
+            "department" to department.toTitleCase(),
             "phNumber" to phoneNumber,
             "nameLowerCase" to name.lowercase()
         )

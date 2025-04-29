@@ -6,6 +6,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -64,8 +66,10 @@ fun EditEventScreen(
     var maj by remember { mutableStateOf(major) }
     var dept by remember { mutableStateOf(department) }
     var isSaving by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     val dateFormat = SimpleDateFormat("MM-dd-yyyy", Locale.getDefault())
+    val db = FirebaseFirestore.getInstance()
 
     fun showDatePickerDialog(onDateSet: (String) -> Unit) {
         val calendar = Calendar.getInstance()
@@ -86,7 +90,12 @@ fun EditEventScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Event", style = MaterialTheme.typography.titleLarge) }
+                title = { Text("Edit Event", style = MaterialTheme.typography.titleLarge) },
+                actions = {
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                    }
+                }
             )
         }
     ) { padding ->
@@ -156,8 +165,7 @@ fun EditEventScreen(
                         "major" to maj,
                         "department" to dept
                     )
-                    FirebaseFirestore.getInstance()
-                        .collection("events")
+                    db.collection("events")
                         .document(eventId)
                         .update(updates)
                         .addOnSuccessListener {
@@ -186,6 +194,49 @@ fun EditEventScreen(
                     Text("Save Changes")
                 }
             }
+        }
+
+        // Delete Dialog
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("Delete Event") },
+                text = { Text("Are you sure you want to delete this event? Its linked chatroom will also be deleted.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        // Delete event first
+                        db.collection("events").document(eventId)
+                            .delete()
+                            .addOnSuccessListener {
+                                // Then delete associated chatroom
+                                db.collection("chatrooms")
+                                    .whereEqualTo("linkedEventId", eventId)
+                                    .get()
+                                    .addOnSuccessListener { querySnapshot ->
+                                        for (doc in querySnapshot.documents) {
+                                            doc.reference.delete()
+                                        }
+                                        Toast.makeText(context, "Event & Chatroom deleted successfully!", Toast.LENGTH_SHORT).show()
+                                        (context as? ComponentActivity)?.finish()
+                                    }
+                                    .addOnFailureListener {
+                                        Toast.makeText(context, "Failed to delete chatroom: ${it.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                            }
+                            .addOnFailureListener {
+                                Toast.makeText(context, "Failed to delete event: ${it.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        showDeleteDialog = false
+                    }) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }

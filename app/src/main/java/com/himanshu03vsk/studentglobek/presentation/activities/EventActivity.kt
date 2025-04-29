@@ -75,12 +75,27 @@ fun EventDetailScreen(
     var isRegistered by remember { mutableStateOf(false) }
     var showEditMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var chatroomId by remember { mutableStateOf<String?>(null) }
+    var chatroomName by remember { mutableStateOf<String?>(null) }
+
 
     LaunchedEffect(eventId) {
         currentUserId?.let { uid ->
             val doc = FirebaseFirestore.getInstance().collection("events").document(eventId).get().await()
             val registeredUsers = doc.get("registeredUsers") as? List<*> ?: emptyList<Any>()
             isRegistered = uid in registeredUsers
+
+            // Fetch associated chatroom
+            val chatroomSnapshot = FirebaseFirestore.getInstance()
+                .collection("chatrooms")
+                .whereEqualTo("linkedEventId", eventId)
+                .get()
+                .await()
+
+            chatroomSnapshot.documents.firstOrNull()?.let { chatroomDoc ->
+                chatroomId = chatroomDoc.id
+                chatroomName = chatroomDoc.getString("chatroomName")
+            }
         }
     }
 
@@ -171,6 +186,23 @@ fun EventDetailScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
+
+                    if (chatroomId != null && chatroomName != null) {
+                        Button(
+                            onClick = {
+                                val intent = Intent(context, ChatroomActivity::class.java).apply {
+                                    putExtra("chatroomId", chatroomId)
+                                    putExtra("chatroomName", chatroomName)
+                                }
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        ) {
+                            Text("Go to Event Chatroom")
+                        }
+                    }
                 } else {
                     Button(
                         onClick = {
@@ -182,6 +214,13 @@ fun EventDetailScreen(
                                     .addOnSuccessListener {
                                         Toast.makeText(context, "Registered successfully!", Toast.LENGTH_SHORT).show()
                                         isRegistered = true
+                                        FirebaseFirestore.getInstance().collection("chatrooms")
+                                            .whereEqualTo("linkedEventId", eventId)
+                                            .get()
+                                            .addOnSuccessListener { chatSnapshot ->
+                                                chatSnapshot.documents.firstOrNull()?.reference
+                                                    ?.update("members", FieldValue.arrayUnion(uid))
+                                            }
                                     }
                                     .addOnFailureListener {
                                         Toast.makeText(context, "Registration failed: ${it.message}", Toast.LENGTH_SHORT).show()

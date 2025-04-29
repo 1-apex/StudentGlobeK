@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.himanshu03vsk.studentglobek.domain.model.Chatroom
@@ -31,6 +33,10 @@ import com.himanshu03vsk.studentglobek.presentation.viewmodel.JoinedChatRoomsVie
 import com.himanshu03vsk.studentglobek.ui.theme.StudentGlobeKTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.PullRefreshState
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 
 class JoinedChatroomsActivity : ComponentActivity() {
     private val viewModel: JoinedChatRoomsViewModel by viewModels()
@@ -45,7 +51,7 @@ class JoinedChatroomsActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
     val context = LocalContext.current
@@ -57,9 +63,29 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
     val createdChatrooms = remember { mutableStateListOf<Chatroom>() }
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var isRefreshing by remember { mutableStateOf(false) }
 
-    // Fetching registered events
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = {
+            scope.launch {
+                isRefreshing = true
+                val snapshot = FirebaseFirestore.getInstance().collection("events").get().await()
+                registeredEvents.clear()
+                registeredEvents.addAll(
+                    snapshot.documents.mapNotNull { doc ->
+                        val event = doc.toObject(Event::class.java)
+                        val registeredUsers = doc.get("registeredUsers") as? List<*> ?: emptyList<Any>()
+                        event?.takeIf { uid in registeredUsers }?.copy(eventId = doc.id)
+                    }
+                )
+                isRefreshing = false
+            }
+        }
+    )
+
     LaunchedEffect(uid) {
+        isRefreshing = true
         val snapshot = FirebaseFirestore.getInstance().collection("events").get().await()
         registeredEvents.clear()
         registeredEvents.addAll(
@@ -69,9 +95,10 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
                 event?.takeIf { uid in registeredUsers }?.copy(eventId = doc.id)
             }
         )
+        isRefreshing = false
     }
 
-    // Live listening for created events & chatrooms
+
     LaunchedEffect(uid) {
         FirebaseFirestore.getInstance()
             .collection("events")
@@ -116,60 +143,68 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
                 )
             }
         ) { innerPadding ->
-            LazyColumn(
-                contentPadding = innerPadding,
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                item {
-                    SectionTitle("Joined Chatrooms")
-                    if (isLoading) {
-                        CenteredLoader()
-                    } else if (chatrooms.isEmpty()) {
-                        EmptyStateMessage("No chatrooms joined yet.")
-                    } else {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(chatrooms) { ChatroomCardCompact(it) }
+            Box(modifier = Modifier.pullRefresh(pullRefreshState)) {
+                LazyColumn(
+                    contentPadding = innerPadding,
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    item {
+                        SectionTitle("Joined Chatrooms")
+                        if (isLoading) {
+                            CenteredLoader()
+                        } else if (chatrooms.isEmpty()) {
+                            EmptyStateMessage("No chatrooms joined yet.")
+                        } else {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(chatrooms) { ChatroomCardCompact(it) }
+                            }
                         }
                     }
-                }
 
-                item {
-                    SectionTitle("Registered Events")
-                    if (registeredEvents.isEmpty()) {
-                        EmptyStateMessage("No registered events yet.")
-                    }
-                }
-                items(registeredEvents) { event ->
-                    EventCard(event)
-                }
-
-                item {
-                    SectionTitle("Created Chatrooms")
-                    if (createdChatrooms.isEmpty()) {
-                        EmptyStateMessage("No chatrooms created yet.")
-                    } else {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(createdChatrooms) { ChatroomCardCreated(it) }
+                    item {
+                        SectionTitle("Registered Events")
+                        if (registeredEvents.isEmpty()) {
+                            EmptyStateMessage("No registered events yet.")
                         }
                     }
-                }
+                    items(registeredEvents) { event ->
+                        EventCard(event)
+                    }
 
-                item {
-                    SectionTitle("Created Events")
-                    if (createdEvents.isEmpty()) {
-                        EmptyStateMessage("No events created yet.")
+                    item {
+                        SectionTitle("Created Chatrooms")
+                        if (createdChatrooms.isEmpty()) {
+                            EmptyStateMessage("No chatrooms created yet.")
+                        } else {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(createdChatrooms) { ChatroomCardCreated(it) }
+                            }
+                        }
+                    }
+
+                    item {
+                        SectionTitle("Created Events")
+                        if (createdEvents.isEmpty()) {
+                            EmptyStateMessage("No events created yet.")
+                        }
+                    }
+                    items(createdEvents) { event ->
+                        EventCardCreated(event)
                     }
                 }
-                items(createdEvents) { event ->
-                    EventCardCreated(event)
-                }
+                PullRefreshIndicator(
+                    refreshing = isRefreshing,
+                    state = pullRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
             }
         }
     }
 }
+
 
 @Composable
 fun SectionTitle(title: String) {
@@ -245,4 +280,3 @@ fun DrawerMenu(onItemClick: (String, Class<*>) -> Unit) {
         )
     }
 }
-
