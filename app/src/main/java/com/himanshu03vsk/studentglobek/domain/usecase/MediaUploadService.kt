@@ -10,71 +10,88 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.*
-import java.io.File
 import java.io.IOException
+import okio.BufferedSink
+import okio.source
+import org.json.JSONObject
+import android.content.Context
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 
 class MediaUploadService {
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
+    // This is now a standard suspend function
     suspend fun uploadMediaToChatroom(
+        context: Context,
         chatroomId: String,
         mediaUri: Uri,
         onMediaUploaded: (Media) -> Unit
     ) {
         try {
-            // Step 1: Get chatroom details from Firestore
-            val chatroomDetails = getChatroomDetails(chatroomId)
             val userId = auth.currentUser?.uid ?: return
 
-            // Step 2: Create the file object from URI (e.g., image or pdf)
-            val file = File(mediaUri.path!!)
+            // Get content resolver from passed context
+            val contentResolver = context.contentResolver
 
-            // Prepare the request body for the file upload (multipart)
+            val inputStream = contentResolver.openInputStream(mediaUri)
+            val fileName = "upload_${System.currentTimeMillis()}" // Or use metadata to get real filename
+
             val requestBody = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
-                .addFormDataPart("file", file.name, RequestBody.create(MediaType.parse("application/octet-stream"), file))
+                .addFormDataPart(
+                    "file", fileName,
+                    object : RequestBody() {
+                        override fun contentType(): MediaType? =
+                            "application/octet-stream".toMediaTypeOrNull()
+
+                        override fun writeTo(sink: BufferedSink) {
+                            inputStream?.use { input ->
+                                sink.writeAll(input.source())
+                            }
+                        }
+                    }
+                )
                 .addFormDataPart("chatroomId", chatroomId)
                 .addFormDataPart("senderId", userId)
                 .build()
 
-            val client = OkHttpClient()
-
             val request = Request.Builder()
-                .url("http://192.168.56.1:5000/upload") // Replace with your actual backend URL
-//                .url("https://chat-server-y96l.onrender.com/upload")
+                .url("https://chat-server-y96l.onrender.com/upload")
                 .post(requestBody)
                 .build()
 
+            val client = OkHttpClient()
             val response = withContext(Dispatchers.IO) {
                 client.newCall(request).execute()
             }
 
             if (response.isSuccessful) {
-                val media = Media(
-                    chatroomId = chatroomId,
-                    senderId = userId,
-                    mediaUrl = "/file/${file.name}" // Assuming the file is stored in GridFS and accessible via this URL
-                )
-                onMediaUploaded(media)
+                val responseBody = response.body?.string()
+                val json = responseBody?.let { JSONObject(it) }
+                val mediaJson = json?.getJSONObject("media")
+
+                val media = mediaJson?.let {
+                    Media(
+                        chatroomId = it.getString("chatroomId"),
+                        senderId = it.getString("senderId"),
+                        mediaUrl = it.getString("mediaUrl")
+                    )
+                }
+
+                media?.let {
+                    onMediaUploaded(it)
+                }
             } else {
-                throw IOException("File upload failed: ${response.message()}")
+                Log.e(
+                    "MediaUploadService",
+                    "Upload failed: ${response.code} ${response.message}"
+                )
             }
 
         } catch (e: Exception) {
             Log.e("MediaUploadService", "Error uploading media: ${e.message}")
-        }
-    }
-
-    // Fetch chatroom details
-    private suspend fun getChatroomDetails(chatroomId: String): Chatroom? {
-        return try {
-            val document = db.collection("chatrooms").document(chatroomId).get().await()
-            document.toObject(Chatroom::class.java)
-        } catch (e: Exception) {
-            Log.e("MediaUploadService", "Error fetching chatroom details: ${e.message}")
-            null
         }
     }
 }

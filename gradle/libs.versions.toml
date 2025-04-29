@@ -1,5 +1,6 @@
 [versions]
 agp = "8.9.1"
+coilCompose = "2.5.0"
 firebaseAuthVersion = "23.2.0"
 firebaseDatabase = "21.0.0"
 kotlin = "2.0.21"
@@ -25,6 +26,7 @@ firebaseStorageKtx = "21.0.1"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 firebase-auth-v2212 = { module = "com.google.firebase:firebase-auth", version.ref = "firebaseAuthVersion" }
 firebase-database = { module = "com.google.firebase:firebase-database", version.ref = "firebaseDatabase" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

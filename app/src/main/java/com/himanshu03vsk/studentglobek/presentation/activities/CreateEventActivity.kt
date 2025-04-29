@@ -161,7 +161,7 @@ class CreateEventActivity : ComponentActivity() {
                                         "major" to majorName,
                                         "department" to departmentName,
                                         "description" to descValue,
-                                        "createdAt" to Timestamp.now(),
+//                                        "createdAt" to Timestamp.now().toString(),
                                         "ownerId" to userId
                                     )
 

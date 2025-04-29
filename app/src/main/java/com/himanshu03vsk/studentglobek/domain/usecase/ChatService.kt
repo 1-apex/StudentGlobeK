@@ -73,7 +73,7 @@ class ChatService {
                     socket.emit("join_room", chatroomId)
                 }
 
-                // Listen for incoming messages
+                // Listen for incoming text messages
                 socket.on("receive_message") { args ->
                     if (args.isNotEmpty()) {
                         val data = args[0] as JSONObject
@@ -82,7 +82,27 @@ class ChatService {
                     }
                 }
 
-                // Handle disconnection
+                // 🆕 Listen for incoming media
+                socket.on("receive_media") { args ->
+                    if (args.isNotEmpty()) {
+                        val data = args[0] as JSONObject
+                        val chatroomId = data.getString("chatroomId")
+                        val senderId = data.getString("senderId")
+                        val mediaUrl = data.getString("mediaUrl")
+                        val fullMediaUrl = "https://chat-server-y96l.onrender.com$mediaUrl"
+
+                        val message = Message(
+                            chatroomId = chatroomId,
+                            senderId = senderId,
+                            senderName = "",
+                            content = "",
+                            mediaUrl = fullMediaUrl
+                        )
+
+                        onMessageReceived(message)
+                    }
+                }
+
                 socket.on(Socket.EVENT_DISCONNECT) {
                     Log.d("Socket", "Disconnected from server")
                 }
@@ -94,6 +114,7 @@ class ChatService {
             Log.e("SocketError", "Error: ${e.message}")
         }
     }
+
 
     fun sendMessage(message: Message) {
         try {

@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,8 +18,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -27,7 +30,8 @@ import com.google.gson.reflect.TypeToken
 import com.himanshu03vsk.studentglobek.domain.model.Message
 import com.himanshu03vsk.studentglobek.domain.usecase.ChatService
 import com.himanshu03vsk.studentglobek.domain.usecase.MediaUploadService
-import com.himanshu03vsk.studentglobek.ui.components.ChatBubble
+import com.himanshu03vsk.studentglobek.presentation.components.ChatBubble
+import com.himanshu03vsk.studentglobek.presentation.components.MediaBubble
 import com.himanshu03vsk.studentglobek.ui.theme.StudentGlobeKTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -94,73 +98,44 @@ fun ChatroomScreen(
     onLeave: () -> Unit,
     onDelete: () -> Unit
 ) {
-
-    var isOwner by remember { mutableStateOf(false) }
-    val chatService = remember { ChatService() }
-    val mediaUploadService = remember { MediaUploadService() }
-
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
+    val chatService = remember { ChatService() }
+    val mediaUploadService = remember { MediaUploadService() }
 
-    // Get the current user's UID (userID from Firebase Authentication)
     val uid = auth.currentUser?.uid ?: ""
-
-    var name by remember { mutableStateOf("") } // Variable to hold the name
-
-    // Fetch the user's details from Firestore
-    val userRef = db.collection("users").document(uid)
-
-    userRef.get().addOnSuccessListener { document ->
-        if (document.exists()) {
-            // Retrieve the user's data from the Firestore document
-            name = document.getString("name") ?: "Unknown User"
-            val email = document.getString("email") ?: "Unknown Email"
-            val department = document.getString("department") ?: "Unknown Department"
-            val major = document.getString("major") ?: "Unknown Major"
-            val phNumber = document.getString("phNumber") ?: "Unknown Phone Number"
-
-            // You can now use these values for other purposes if needed
-            Log.d("User Info", "Name: $name, Email: $email, Department: $department, Major: $major, Phone: $phNumber")
-        } else {
-            // Document doesn't exist, handle the case
-            Log.d("User Info", "No user found with this UID.")
-        }
-    }.addOnFailureListener { exception ->
-        // Handle error, failed to fetch data from Firestore
-        Log.d("User Info", "Error getting user data: ${exception.message}")
-    }
-
+    var name by remember { mutableStateOf("") }
     var messages by remember { mutableStateOf<List<Message>>(emptyList()) }
     var inputMessage by remember { mutableStateOf("") }
+    var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
+    var uploadedMediaUrl by remember { mutableStateOf<String?>(null) }
+    var isOwner by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) }  // <-- Loading state added
 
-    // Media picker launcher (must be placed at composable scope)
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let {
-            Toast.makeText(context, "Uploading media...", Toast.LENGTH_SHORT).show()
-            CoroutineScope(Dispatchers.IO).launch {
-                mediaUploadService.uploadMediaToChatroom(
-                    chatroomId = chatroomId,
-                    mediaUri = uri,
-                    onMediaUploaded = { media ->
-                        // Handle media upload callback here if needed
-                    }
-                )
-            }
+        selectedMediaUri = uri
+    }
+
+    // Fetch user details
+    LaunchedEffect(uid) {
+        val doc = db.collection("users").document(uid).get().await()
+        if (doc.exists()) {
+            name = doc.getString("name") ?: "Unknown User"
         }
     }
 
+    // Fetch chat history and connect to chat socket
     LaunchedEffect(chatroomId) {
-        // Check ownership
         val doc = db.collection("chatrooms").document(chatroomId).get().await()
         isOwner = doc.getString("ownerId") == uid
 
-        // Fetch chat history
         messages = fetchChatHistory(chatroomId)
 
-        // Connect to chat socket
+        isLoading = false // <-- Set loading to false after fetching messages
+
         chatService.connectToChatServer(chatroomId) { incomingMessage ->
             messages = messages + incomingMessage
         }
@@ -184,61 +159,121 @@ fun ChatroomScreen(
             )
         },
         bottomBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextField(
-                    value = inputMessage,
-                    onValueChange = { inputMessage = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message...") }
-                )
-                IconButton(
-                    onClick = {
-                        launcher.launch("*/*") // Launch file picker
-                    },
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Attach Media"
-                    )
-                }
-                Button(
-                    onClick = {
-                        if (inputMessage.isNotBlank()) {
-                            val msg = Message(
-                                senderId = uid,
-                                senderName = name,  // Use the fetched name here
-                                chatroomId = chatroomId,
-                                content = inputMessage.trim()
-                            )
-                            chatService.sendMessage(msg)
-                            inputMessage = "" // Clear the input field after sending
+            Column {
+                if (selectedMediaUri != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Image(
+                            painter = rememberAsyncImagePainter(selectedMediaUri),
+                            contentDescription = "Selected Media",
+                            modifier = Modifier
+                                .size(100.dp)
+                                .padding(end = 8.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                        Button(onClick = { selectedMediaUri = null }) {
+                            Text("Remove")
                         }
-                    },
-                    modifier = Modifier.padding(start = 4.dp)
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Send")
+                    TextField(
+                        value = inputMessage,
+                        onValueChange = { inputMessage = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Type a message...") }
+                    )
+                    IconButton(onClick = { launcher.launch("*/*") }) {
+                        Icon(Icons.Default.Share, contentDescription = "Attach Media")
+                    }
+                    Button(
+                        onClick = {
+                            if (selectedMediaUri != null) {
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    mediaUploadService.uploadMediaToChatroom(
+                                        chatroomId = chatroomId,
+                                        mediaUri = selectedMediaUri!!,
+                                        onMediaUploaded = { media ->
+                                            uploadedMediaUrl = "https://chat-server-y96l.onrender.com${media.mediaUrl}"
+                                            val msg = Message(
+                                                chatroomId = chatroomId,
+                                                senderId = uid,
+                                                senderName = name,
+                                                content = inputMessage.trim(),
+                                                mediaUrl = uploadedMediaUrl
+                                            )
+                                            chatService.sendMessage(msg)
+                                            inputMessage = ""
+                                            selectedMediaUri = null
+                                            uploadedMediaUrl = null
+                                        },
+                                        context = context
+                                    )
+                                }
+                            } else if (inputMessage.isNotBlank()) {
+                                val msg = Message(
+                                    chatroomId = chatroomId,
+                                    senderId = uid,
+                                    senderName = name,
+                                    content = inputMessage.trim()
+                                )
+                                chatService.sendMessage(msg)
+                                inputMessage = ""
+                            }
+                        },
+                        modifier = Modifier.padding(start = 4.dp)
+                    ) {
+                        Text("Send")
+                    }
                 }
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) {
-            items(messages) { message ->
-                ChatBubble(
-                    message = message.content,
-                    sender = message.senderId,
-                    senderName = message.senderName,
-                    isCurrentUser = message.senderId == uid
-                )
+        if (isLoading) {
+            // 👇 Show a centered Circular Progress Bar
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            // 👇 Actual Chat List
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+            ) {
+                items(messages) { message ->
+                    if (!message.mediaUrl.isNullOrEmpty()) {
+                        MediaBubble(
+                            mediaUrl = message.mediaUrl,
+                            senderName = message.senderName ?: "Unknown",
+                            isCurrentUser = message.senderId == uid,
+                            content = message.content.takeIf { !it.isNullOrBlank() }
+                        )
+                    } else {
+                        message.content?.let {
+                            ChatBubble(
+                                message = it,
+                                senderName = message.senderName ?: "Unknown",
+                                isCurrentUser = message.senderId == uid
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -247,22 +282,60 @@ fun ChatroomScreen(
 
 suspend fun fetchChatHistory(chatroomId: String): List<Message> {
     return try {
-//        val url = URL("http://10.0.2.2:5000/api/messages/chatroom/$chatroomId")
-        val url = URL("https://chat-server-y96l.onrender.com/api/messages/chatroom/$chatroomId")
-        val connection = withContext(Dispatchers.IO) {
-            url.openConnection() as HttpURLConnection
+        val gson = Gson()
+
+        // Fetch text messages
+        val messagesUrl = URL("https://chat-server-y96l.onrender.com/api/messages/chatroom/$chatroomId")
+        val messagesConnection = withContext(Dispatchers.IO) {
+            messagesUrl.openConnection() as HttpURLConnection
+        }
+        messagesConnection.requestMethod = "GET"
+        messagesConnection.connectTimeout = 10000
+        messagesConnection.readTimeout = 10000
+
+        val messagesResponse = withContext(Dispatchers.IO) {
+            messagesConnection.inputStream.bufferedReader().use { it.readText() }
+        }
+        val messageType = object : TypeToken<List<Message>>() {}.type
+        var messages: List<Message> = gson.fromJson(messagesResponse, messageType)
+
+        // Fetch media messages
+        val mediaUrl = URL("https://chat-server-y96l.onrender.com/api/media/chatroom/$chatroomId")
+        val mediaConnection = withContext(Dispatchers.IO) {
+            mediaUrl.openConnection() as HttpURLConnection
+        }
+        mediaConnection.requestMethod = "GET"
+        mediaConnection.connectTimeout = 10000
+        mediaConnection.readTimeout = 10000
+
+        val mediaResponse = withContext(Dispatchers.IO) {
+            mediaConnection.inputStream.bufferedReader().use { it.readText() }
+        }
+        val mediaType = object : TypeToken<List<Message>>() {}.type
+        var mediaMessages: List<Message> = gson.fromJson(mediaResponse, mediaType)
+
+        // Fix media URLs if needed
+        messages = messages.map { message ->
+            if (!message.mediaUrl.isNullOrEmpty() && !message.mediaUrl.startsWith("http")) {
+                message.copy(mediaUrl = "https://chat-server-y96l.onrender.com${message.mediaUrl}")
+            } else {
+                message
+            }
         }
 
-        connection.requestMethod = "GET"
-        connection.connectTimeout = 5000
-        connection.readTimeout = 5000
-
-        val response = withContext(Dispatchers.IO) {
-            connection.inputStream.bufferedReader().use { it.readText() }
+        mediaMessages = mediaMessages.map { media ->
+            if (!media.mediaUrl.isNullOrEmpty() && !media.mediaUrl.startsWith("http")) {
+                media.copy(mediaUrl = "https://chat-server-y96l.onrender.com${media.mediaUrl}")
+            } else {
+                media
+            }
         }
 
-        val type = object : TypeToken<List<Message>>() {}.type
-        Gson().fromJson(response, type)
+        // Merge both messages and media and sort by createdAt timestamp
+        val allMessages = (messages + mediaMessages).sortedBy { it.timestamp }
+
+        allMessages
+
     } catch (e: Exception) {
         e.printStackTrace()
         emptyList()

@@ -8,21 +8,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
 @Composable
-fun ChatBubble(
-    message: String,
-    senderName: String,
-    isCurrentUser: Boolean
+fun MediaBubble(
+    mediaUrl: String,
+    senderName: String? = null,
+    isCurrentUser: Boolean,
+    content: String? = null
 ) {
     val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
     val backgroundColor = if (isCurrentUser) Color(0xFFDCF8C6) else Color(0xFFFFFFFF)
-    val textColor = if (isCurrentUser) Color.Black else Color.Gray
 
     Column(
         modifier = Modifier
@@ -36,15 +34,30 @@ fun ChatBubble(
             colors = CardDefaults.cardColors(containerColor = backgroundColor)
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = senderName,
-                    style = TextStyle(fontSize = 12.sp, color = textColor),
-                    modifier = Modifier.padding(bottom = 4.dp)
+                if (senderName != null) {
+                    Text(
+                        text = senderName,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(mediaUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Media File",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 100.dp, max = 400.dp)
                 )
-                Text(
-                    text = message,
-                    style = TextStyle(fontSize = 16.sp, color = textColor)
-                )
+                if (!content.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = content,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
     }

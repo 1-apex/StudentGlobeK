@@ -10,5 +10,6 @@ data class Event(
     val department: String = "",
     val description: String = "",
     val ownerId: String = "",
+//    val createdAt: String = "",
     val registeredUsers: List<String> = emptyList()
 )
