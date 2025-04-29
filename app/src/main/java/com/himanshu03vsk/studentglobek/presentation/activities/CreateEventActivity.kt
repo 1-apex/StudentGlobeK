@@ -6,21 +6,19 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.himanshu03vsk.studentglobek.presentation.components.TextFieldInputFunction
-import com.himanshu03vsk.studentglobek.presentation.components.LargeInputBox
-import com.himanshu03vsk.studentglobek.presentation.components.TopAppBarComponent
 import com.himanshu03vsk.studentglobek.ui.theme.StudentGlobeKTheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -29,179 +27,170 @@ class CreateEventActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContent {
             StudentGlobeKTheme {
-                // Layout for creating a chatroom
-                var eventName by remember { mutableStateOf("") }
-                var majorName by remember { mutableStateOf("") }
-                var startDate by remember { mutableStateOf("") }
-                var endDate by remember { mutableStateOf("") }
-                var descValue by remember { mutableStateOf("") }
-                var departmentName by remember { mutableStateOf("") }
-                var selectedChatRoomType by remember { mutableStateOf("") }
-                var mExpanded by remember { mutableStateOf(false) }
+                CreateEventScreen()
+            }
+        }
+    }
+}
 
-                // Format for displaying the date
-                val dateFormat = SimpleDateFormat("MM-dd-yyyy", Locale.US)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateEventScreen() {
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
 
-                val context = LocalContext.current
+    var eventName by remember { mutableStateOf("") }
+    var majorName by remember { mutableStateOf("") }
+    var departmentName by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var startDate by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
+    var isSaving by remember { mutableStateOf(false) }
 
-                // Function to show DatePicker dialog
-                fun showDatePickerDialog(onDateSet: (String) -> Unit) {
-                    val calendar = Calendar.getInstance()
-                    val datePickerDialog = DatePickerDialog(
-                        context,
-                        { _, year, month, dayOfMonth ->
-                            val date = Calendar.getInstance().apply {
-                                set(year, month, dayOfMonth)
-                            }.time
-                            val formattedDate = dateFormat.format(date) // Format the date
-                            onDateSet(formattedDate)
-                        },
-                        calendar.get(Calendar.YEAR),
-                        calendar.get(Calendar.MONTH),
-                        calendar.get(Calendar.DAY_OF_MONTH)
-                    )
-                    datePickerDialog.show()
+    val dateFormat = SimpleDateFormat("MM-dd-yyyy", Locale.getDefault())
+
+    fun showDatePicker(onDateSelected: (String) -> Unit) {
+        val calendar = Calendar.getInstance()
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                val selected = Calendar.getInstance()
+                selected.set(year, month, dayOfMonth)
+                onDateSelected(dateFormat.format(selected.time))
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Create Event") }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            OutlinedTextField(
+                value = eventName,
+                onValueChange = { eventName = it },
+                label = { Text("Event Name") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = majorName,
+                onValueChange = { majorName = it },
+                label = { Text("Major") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = departmentName,
+                onValueChange = { departmentName = it },
+                label = { Text("Department") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                singleLine = true
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedButton(
+                    onClick = { showDatePicker { startDate = it } },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.DateRange, contentDescription = "Select Start Date")
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (startDate.isEmpty()) "Start Date" else startDate)
                 }
 
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                OutlinedButton(
+                    onClick = { showDatePicker { endDate = it } },
+                    modifier = Modifier.weight(1f)
                 ) {
-                    TopAppBarComponent("Create an Event")
+                    Icon(Icons.Default.DateRange, contentDescription = "Select End Date")
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (endDate.isEmpty()) "End Date" else endDate)
+                }
+            }
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Spacer(modifier = Modifier.height(16.dp))
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                maxLines = 5
+            )
 
-                        // Using TextFieldInputFunction to get user input for event name
-                        TextFieldInputFunction(
-                            label = "Event Name",
-                            value = eventName,
-                            onValueChange = { eventName = it }
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    isSaving = true
+                    val db = FirebaseFirestore.getInstance()
+                    val userId = auth.currentUser?.uid
+                    if (!eventName.isBlank() && userId != null) {
+                        val eventRef = db.collection("events").document()
+                        val eventData = hashMapOf(
+                            "eventId" to eventRef.id,
+                            "eventName" to eventName,
+                            "startDate" to startDate,
+                            "endDate" to endDate,
+                            "major" to majorName,
+                            "department" to departmentName,
+                            "description" to description,
+                            "ownerId" to userId,
+                            "createdAt" to Timestamp.now()
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Start Date Picker Button
-                        Button(
-                            onClick = {
-                                showDatePickerDialog { formattedDate ->
-                                    startDate = formattedDate
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(text = if (startDate.isEmpty()) "Select Start Date" else "Start Date: $startDate")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // End Date Picker Button
-                        Button(
-                            onClick = {
-                                showDatePickerDialog { formattedDate ->
-                                    endDate = formattedDate
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(text = if (endDate.isEmpty()) "Select End Date" else "End Date: $endDate")
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Major TextField
-                        TextFieldInputFunction(
-                            label = "Major",
-                            value = majorName,
-                            onValueChange = { majorName = it }
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Department TextField
-                        TextFieldInputFunction(
-                            label = "Department",
-                            value = departmentName,
-                            onValueChange = { departmentName = it }
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Description TextField
-                        LargeInputBox(
-                            label = "Description of the Event",
-                            value = descValue,
-                            onValueChange = { descValue = it }
-                        )
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Button(
-                            onClick = {
-                                // Firebase logic
-
-                                val db = FirebaseFirestore.getInstance()
-                                val auth = FirebaseAuth.getInstance()
-                                val userId = auth.currentUser?.uid
-
-                                if (userId != null && eventName.isNotEmpty()) {
-                                    val eventData = hashMapOf(
-                                        "eventName" to eventName,
-                                        "startDate" to startDate,
-                                        "endDate" to endDate,
-                                        "major" to majorName,
-                                        "department" to departmentName,
-                                        "description" to descValue,
-//                                        "createdAt" to Timestamp.now().toString(),
-                                        "ownerId" to userId
-                                    )
-
-                                    val eventRef = db.collection("events")
-                                        .document() // Create doc with auto ID
-                                    val eventId = eventRef.id
-
-                                    eventData["eventId"] = eventId // Store eventId inside doc
-
-                                    eventRef.set(eventData)
-                                        .addOnSuccessListener {
-                                            Toast.makeText(
-                                                context,
-                                                "Event Created",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            finish() // Go back after creation
-                                        }
-                                        .addOnFailureListener { e ->
-                                            Toast.makeText(
-                                                context,
-                                                "Failed: ${e.message}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Missing Event Name or Not Logged In",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            },
-                            modifier = Modifier
-                                .padding(32.dp)
-                                .fillMaxWidth()
-                        ) {
-                            Text("Create")
-                        }
+                        eventRef.set(eventData)
+                            .addOnSuccessListener {
+                                Toast.makeText(context, "Event Created Successfully!", Toast.LENGTH_SHORT).show()
+                                (context as? ComponentActivity)?.finish()
+                            }
+                            .addOnFailureListener {
+                                Toast.makeText(context, "Failed: ${it.message}", Toast.LENGTH_LONG).show()
+                            }
+                            .addOnCompleteListener {
+                                isSaving = false
+                            }
+                    } else {
+                        Toast.makeText(context, "Fill all fields properly", Toast.LENGTH_SHORT).show()
+                        isSaving = false
                     }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                enabled = !isSaving
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text("Create Event")
                 }
             }
         }

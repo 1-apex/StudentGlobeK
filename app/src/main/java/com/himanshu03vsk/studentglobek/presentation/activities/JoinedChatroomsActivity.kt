@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -55,10 +56,9 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
     val registeredEvents = remember { mutableStateListOf<Event>() }
     val createdChatrooms = remember { mutableStateListOf<Chatroom>() }
     val scope = rememberCoroutineScope()
-
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-    // Fetch registered events (one-time)
+    // Fetching registered events
     LaunchedEffect(uid) {
         val snapshot = FirebaseFirestore.getInstance().collection("events").get().await()
         registeredEvents.clear()
@@ -71,35 +71,27 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
         )
     }
 
-    // Real-time updates for created events
+    // Live listening for created events & chatrooms
     LaunchedEffect(uid) {
         FirebaseFirestore.getInstance()
             .collection("events")
             .whereEqualTo("ownerId", uid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null) return@addSnapshotListener
-                createdEvents.clear()
-                createdEvents.addAll(
-                    snapshot.documents.mapNotNull { doc ->
-                        doc.toObject(Event::class.java)?.copy(eventId = doc.id)
-                    }
-                )
+            .addSnapshotListener { snapshot, _ ->
+                snapshot?.let {
+                    createdEvents.clear()
+                    createdEvents.addAll(it.documents.mapNotNull { d -> d.toObject(Event::class.java)?.copy(eventId = d.id) })
+                }
             }
     }
-
-    // Real-time updates for created chatrooms
     LaunchedEffect(uid) {
         FirebaseFirestore.getInstance()
             .collection("chatrooms")
             .whereEqualTo("ownerId", uid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null) return@addSnapshotListener
-                createdChatrooms.clear()
-                createdChatrooms.addAll(
-                    snapshot.documents.mapNotNull { doc ->
-                        doc.toObject(Chatroom::class.java)?.copy(id = doc.id)
-                    }
-                )
+            .addSnapshotListener { snapshot, _ ->
+                snapshot?.let {
+                    createdChatrooms.clear()
+                    createdChatrooms.addAll(it.documents.mapNotNull { d -> d.toObject(Chatroom::class.java)?.copy(id = d.id) })
+                }
             }
     }
 
@@ -107,8 +99,7 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
         drawerState = drawerState,
         drawerContent = {
             DrawerMenu { label, destination ->
-                val activity = context as? Activity
-                activity?.startActivity(Intent(context, destination))
+                (context as? Activity)?.startActivity(Intent(context, destination))
                 scope.launch { drawerState.close() }
             }
         }
@@ -116,10 +107,10 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Dashboard") },
+                    title = { Text("StudentGlobe Dashboard", style = MaterialTheme.typography.titleLarge) },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            Icon(Icons.Default.Menu, contentDescription = "Open Menu")
                         }
                     }
                 )
@@ -127,47 +118,87 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
         ) { innerPadding ->
             LazyColumn(
                 contentPadding = innerPadding,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                // Joined Chatrooms
                 item {
-                    Text("Joined Chatrooms", style = MaterialTheme.typography.titleMedium)
-                    if (isLoading) CircularProgressIndicator()
-                    else if (chatrooms.isEmpty()) Text("No joined chatrooms.")
-                    else LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(chatrooms) { ChatroomCardCompact(it) }
+                    SectionTitle("Joined Chatrooms")
+                    if (isLoading) {
+                        CenteredLoader()
+                    } else if (chatrooms.isEmpty()) {
+                        EmptyStateMessage("No chatrooms joined yet.")
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(chatrooms) { ChatroomCardCompact(it) }
+                        }
                     }
                 }
 
-                // Registered Events
-                item { Text("Registered Events", style = MaterialTheme.typography.titleMedium) }
-                items(registeredEvents) { EventCard(event = it) }
+                item {
+                    SectionTitle("Registered Events")
+                    if (registeredEvents.isEmpty()) {
+                        EmptyStateMessage("No registered events yet.")
+                    }
+                }
+                items(registeredEvents) { event ->
+                    EventCard(event)
+                }
 
-                // Created Chatrooms
-                item { Text("Created Chatrooms", style = MaterialTheme.typography.titleMedium) }
-                if (createdChatrooms.isEmpty()) {
-                    item { Text("No created chatrooms.") }
-                } else {
-                    item {
+                item {
+                    SectionTitle("Created Chatrooms")
+                    if (createdChatrooms.isEmpty()) {
+                        EmptyStateMessage("No chatrooms created yet.")
+                    } else {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(createdChatrooms) { ChatroomCardCreated(it) }
                         }
                     }
                 }
 
-                // Created Events
-                item { Text("Created Events", style = MaterialTheme.typography.titleMedium) }
-                if (createdEvents.isEmpty()) {
-                    item { Text("No created events.") }
-                } else {
-                    items(createdEvents) { EventCardCreated(event = it) }
+                item {
+                    SectionTitle("Created Events")
+                    if (createdEvents.isEmpty()) {
+                        EmptyStateMessage("No events created yet.")
+                    }
+                }
+                items(createdEvents) { event ->
+                    EventCardCreated(event)
                 }
             }
         }
     }
+}
+
+@Composable
+fun SectionTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(vertical = 8.dp)
+    )
+}
+
+@Composable
+fun CenteredLoader() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+fun EmptyStateMessage(message: String) {
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+        modifier = Modifier.padding(vertical = 8.dp)
+    )
 }
 
 @SuppressLint("ContextCastToActivity")
@@ -175,33 +206,22 @@ fun DashboardScreen(viewModel: JoinedChatRoomsViewModel) {
 fun DrawerMenu(onItemClick: (String, Class<*>) -> Unit) {
     val activity = LocalContext.current as? Activity
     val navItems = listOf(
-//        "Landing Page" to LandingActivity::class.java,
         "Create Chatroom" to CreateChatroomActivity::class.java,
         "Create Event" to CreateEventActivity::class.java,
-//        "Joined Chatrooms" to JoinedChatroomsActivity::class.java,
-//        "User Profile" to EditProfileActivity::class.java,
-//        "Home Page" to HomePageActivity::class.java,
-//        "Chatroom" to ChatroomActivity::class.java,
-//        "Login" to LoginActivity::class.java,
         "Search Peers" to SearchPeersActivity::class.java,
-//        "Sign Up" to SignUpActivity::class.java,
-//        "Verify Account" to VerifyAccountActivity::class.java,
         "View Chatrooms" to ViewChatroomsActivity::class.java,
         "View Events" to ViewEventsActivity::class.java
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .background(MaterialTheme.colorScheme.surface)
-            .verticalScroll(rememberScrollState())
-            .padding(WindowInsets.systemBars.asPaddingValues())
-    ) {
-        Spacer(modifier = Modifier.height(24.dp))
+    ModalDrawerSheet {
+        Spacer(Modifier.height(24.dp))
         Text(
-            "Menu", style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(start = 16.dp, bottom = 16.dp)
+            "Navigation",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(16.dp)
         )
+        HorizontalDivider()
+
         navItems.forEach { (label, destination) ->
             NavigationDrawerItem(
                 label = { Text(label) },
@@ -210,9 +230,11 @@ fun DrawerMenu(onItemClick: (String, Class<*>) -> Unit) {
                 modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
             )
         }
-        Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
         NavigationDrawerItem(
-            label = { Text("Logout") },
+            label = { Text("Logout", color = MaterialTheme.colorScheme.error) },
             selected = false,
             onClick = {
                 FirebaseAuth.getInstance().signOut()
@@ -223,3 +245,4 @@ fun DrawerMenu(onItemClick: (String, Class<*>) -> Unit) {
         )
     }
 }
+

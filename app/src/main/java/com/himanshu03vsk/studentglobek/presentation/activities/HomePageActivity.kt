@@ -57,56 +57,87 @@ class HomePageActivity : ComponentActivity() {
     @Composable
     fun MainScreen(modifier: Modifier = Modifier) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = modifier
                 .fillMaxSize()
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // App Information Section
+            // Welcome Text
             Text(
-                text = "Welcome to Student Globe K!",
-                style = MaterialTheme.typography.headlineMedium,
+                text = "Welcome to",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = "Student Globe 🌐",
+                style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            Text(
-                text = "Student Globe K helps you stay connected with peers and join chatrooms and events in your community. Easily create, join, and engage in meaningful discussions with fellow students.",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            // Add Image Section
+            // Image
             Image(
-                painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                contentDescription = "App Illustration",
+                painter = painterResource(id = R.drawable.student_globe),
+                contentDescription = "Student Globe Illustration",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(250.dp)
-                    .padding(bottom = 16.dp)
+                    .height(220.dp)
+                    .padding(vertical = 8.dp)
             )
 
-            // Login and Register Buttons
+            // Info Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Why use Student Globe?",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "• Connect with peers across departments\n" +
+                                "• Join chatrooms and community events\n" +
+                                "• Build meaningful discussions with students",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Login Button
             Button(
                 onClick = {
                     val intent = Intent(this@HomePageActivity, LoginActivity::class.java)
                     startActivity(intent)
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             ) {
                 Text("Login")
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
+            // Register Button
+            OutlinedButton(
                 onClick = {
                     val intent = Intent(this@HomePageActivity, SignUpActivity::class.java)
                     startActivity(intent)
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("Register")
             }

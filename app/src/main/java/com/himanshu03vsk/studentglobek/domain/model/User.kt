@@ -7,5 +7,6 @@ data class User(
     val email: String = "",
     val major: String = "",
     val department: String = "",
-    val phNumber: String = ""
+    val phNumber: String = "",
+    val nameLowerCase: String = name.lowercase()
 )

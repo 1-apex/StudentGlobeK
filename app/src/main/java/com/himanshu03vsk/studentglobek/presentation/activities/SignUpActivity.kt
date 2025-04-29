@@ -2,6 +2,7 @@ package com.himanshu03vsk.studentglobek.presentation.activities
 
 import android.content.Context
 import android.content.Intent
+import android.icu.text.CaseMap.Lower
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -37,7 +38,7 @@ class SignUpActivity : ComponentActivity() {
         }
     }
 }
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(auth: FirebaseAuth, activity: ComponentActivity) {
     var userName by remember { mutableStateOf("") }
@@ -47,34 +48,110 @@ fun SignUpScreen(auth: FirebaseAuth, activity: ComponentActivity) {
     var major by remember { mutableStateOf("") }
     var department by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        OutlinedTextField(value = userName, onValueChange = { userName = it }, label = { Text("UserName") })
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") })
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), visualTransformation = PasswordVisualTransformation())
-        OutlinedTextField(value = major, onValueChange = { major = it }, label = { Text("Major") })
-        OutlinedTextField(value = department, onValueChange = { department = it }, label = { Text("Department") })
-        OutlinedTextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("Phone Number") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone))
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Register") },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Create Your Account",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = {
-            if (validateInput(userName, name, email, password, context)) {
-                registerUser(auth, userName, name, email, password, major, department, phoneNumber, context, activity)
+            val fieldModifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+
+            OutlinedTextField(
+                value = userName, onValueChange = { userName = it },
+                label = { Text("Username") }, modifier = fieldModifier
+            )
+            OutlinedTextField(
+                value = name, onValueChange = { name = it },
+                label = { Text("Full Name") }, modifier = fieldModifier
+            )
+            OutlinedTextField(
+                value = email, onValueChange = { email = it },
+                label = { Text("Email") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = fieldModifier
+            )
+            OutlinedTextField(
+                value = password, onValueChange = { password = it },
+                label = { Text("Password") },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = fieldModifier
+            )
+            OutlinedTextField(
+                value = major, onValueChange = { major = it },
+                label = { Text("Major") }, modifier = fieldModifier
+            )
+            OutlinedTextField(
+                value = department, onValueChange = { department = it },
+                label = { Text("Department") }, modifier = fieldModifier
+            )
+            OutlinedTextField(
+                value = phoneNumber, onValueChange = { phoneNumber = it },
+                label = { Text("Phone Number") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = fieldModifier
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    if (validateInput(userName, name, email, password, context)) {
+                        isLoading = true
+                        registerUser(
+                            auth, userName, name, email, password,
+                            major, department, phoneNumber, context, activity
+                        ) {
+                            isLoading = false
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Text("Register")
+                }
             }
-        }) {
-            Text("Register")
         }
     }
 }
+
 
 private fun validateInput(userName: String, name: String, email: String, password: String, context: Context): Boolean {
     if (userName.isEmpty() || name.isEmpty() || email.isEmpty() || password.isEmpty()) {
@@ -98,10 +175,12 @@ private fun registerUser(
     department: String,
     phoneNumber: String,
     context: Context,
-    activity: ComponentActivity
+    activity: ComponentActivity,
+    onResult: () -> Unit
 ) {
     auth.createUserWithEmailAndPassword(email, password)
         .addOnCompleteListener(activity) { task ->
+            onResult()
             if (task.isSuccessful) {
                 val user = auth.currentUser
                 user?.let {
@@ -134,7 +213,8 @@ private fun saveUserData(auth: FirebaseAuth, userName: String, name: String, ema
             "email" to email,
             "major" to major,
             "department" to department,
-            "phNumber" to phoneNumber
+            "phNumber" to phoneNumber,
+            "nameLowerCase" to name.lowercase()
         )
 
         db.collection("users").document(currentUser.uid)

@@ -2,19 +2,18 @@ package com.himanshu03vsk.studentglobek.presentation.activities
 
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.foundation.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.google.firebase.Timestamp
@@ -30,20 +29,20 @@ class CreateChatroomActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             StudentGlobeKTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    CreateChatroomScreen(
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                Scaffold { innerPadding ->
+                    CreateChatroomScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
     }
 }
+
 @Composable
-fun CreateChatroomScreen(modifier: Modifier) {
+fun CreateChatroomScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     var chatroomName by remember { mutableStateOf("") }
     var major by remember { mutableStateOf("") }
@@ -51,30 +50,26 @@ fun CreateChatroomScreen(modifier: Modifier) {
     var selectedChatroomType by remember { mutableStateOf("Semester") }
     var isLoading by remember { mutableStateOf(false) }
 
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-    // Wrap the screen layout to prevent elements from shifting when the keyboard is open
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp)
-            .imePadding(), // Ensures padding for keyboard space
+            .imePadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         TopAppBarComponent("Create New Chatroom")
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Chatroom name text field
         TextFieldInputFunction(
             label = "Chatroom Name",
             value = chatroomName,
             onValueChange = { chatroomName = it },
         )
 
+
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Chatroom type radio buttons
         ChatroomTypeRadioButtons(
             selectedOption = selectedChatroomType,
             onOptionSelected = { selectedChatroomType = it }
@@ -82,30 +77,28 @@ fun CreateChatroomScreen(modifier: Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Major text field
         TextFieldInputFunction(
             label = "Major",
             value = major,
-            onValueChange = { major = it }
+            onValueChange = { major = it },
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Department text field
         TextFieldInputFunction(
             label = "Department",
             value = department,
             onValueChange = { department = it }
         )
 
-        Spacer(modifier = Modifier.weight(1f)) // Flexible space to push button to bottom
+        Spacer(modifier = Modifier.weight(1f))
 
-        // Create chatroom button
         Button(
             onClick = {
                 if (validateInput(chatroomName, major, department)) {
+                    isLoading = true
                     createChatroom(
-                        context,
+                        context = context,
                         firestore = firestore,
                         auth = auth,
                         chatroomName = chatroomName,
@@ -114,27 +107,27 @@ fun CreateChatroomScreen(modifier: Modifier) {
                         department = department,
                         onSuccess = {
                             isLoading = false
-                            keyboardController?.hide() // Hide keyboard after successful creation
+                            keyboardController?.hide()
                             (context as? ComponentActivity)?.finish()
                         },
-                        onError = { error ->
+                        onError = {
                             isLoading = false
-                            Log.e("CreateChatroom", "Error creating chatroom", error)
                         }
                     )
-                    isLoading = true
+                } else {
+                    Toast.makeText(context, "Please fill all fields.", Toast.LENGTH_SHORT).show()
                 }
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             enabled = !isLoading
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
                     color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp
                 )
             } else {
                 Text("Create Chatroom")
@@ -165,24 +158,18 @@ private fun createChatroom(
         return
     }
 
-    // Check chatroom limit (max 4 per user)
     firestore.collection("chatrooms")
         .whereEqualTo("ownerId", currentUser.uid)
         .get()
         .addOnSuccessListener { querySnapshot ->
             if (querySnapshot.size() >= 4) {
-                Toast.makeText(
-                    context,
-                    "Maximum limit of 4 chatrooms reached",
-                    Toast.LENGTH_SHORT
-                ).show()
-                onError(Exception("Chatroom limit reached"))
+                Toast.makeText(context, "Maximum 4 chatrooms allowed.", Toast.LENGTH_SHORT).show()
+                onError(Exception("Limit reached"))
                 return@addOnSuccessListener
             }
 
-            // Determine expiry time based on chatroom type
             val calendar = Calendar.getInstance()
-            val typeDurationInMillis: Long = when (chatroomType) {
+            val expiryTimestamp = when (chatroomType) {
                 "Semester" -> {
                     calendar.add(Calendar.MONTH, 4)
                     calendar.timeInMillis
@@ -206,28 +193,25 @@ private fun createChatroom(
                 "department" to department,
                 "createdAt" to Timestamp.now(),
                 "updatedAt" to Timestamp.now(),
-                "expiry" to Timestamp(typeDurationInMillis / 1000, 0)
+                "expiry" to Timestamp(expiryTimestamp / 1000, 0)
             )
 
-            // Create chatroom in Firestore
             firestore.collection("chatrooms")
                 .add(chatroomData)
                 .addOnSuccessListener {
-                    Log.d("CreateChatroom", "Chatroom created successfully!")
+                    Toast.makeText(context, "Chatroom created successfully.", Toast.LENGTH_SHORT).show()
                     onSuccess()
                 }
                 .addOnFailureListener { e ->
-                    Log.e("CreateChatroom", "Error creating chatroom", e)
+                    Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
                     onError(e)
                 }
         }
         .addOnFailureListener { e ->
-            Log.e("CreateChatroom", "Error checking chatroom limit", e)
+            Toast.makeText(context, "Error checking limit: ${e.message}", Toast.LENGTH_SHORT).show()
             onError(e)
         }
 }
-
-
 
 @Composable
 fun ChatroomTypeRadioButtons(
@@ -239,11 +223,8 @@ fun ChatroomTypeRadioButtons(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline,
-                shape = MaterialTheme.shapes.medium
-            )
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+            .padding(12.dp)
     ) {
         options.forEach { option ->
             Row(
@@ -257,10 +238,11 @@ fun ChatroomTypeRadioButtons(
                     selected = selectedOption == option,
                     onClick = { onOptionSelected(option) }
                 )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = option,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }

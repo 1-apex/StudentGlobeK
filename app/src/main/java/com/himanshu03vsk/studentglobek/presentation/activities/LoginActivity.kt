@@ -44,70 +44,128 @@ class LoginActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(auth: FirebaseAuth, activity: ComponentActivity) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-        )
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            visualTransformation = PasswordVisualTransformation()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = {
-            if (email.isNotEmpty() && password.isNotEmpty()) {
-                loginUser(auth, email, password, context, activity)
-            } else {
-                Toast.makeText(context, "Please enter email and password", Toast.LENGTH_SHORT).show()
-            }
-        }) {
-            Text("Login")
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Login") },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-//        Button(onClick = {
-//            context.startActivity(Intent(context, SignUpActivity::class.java))
-//        }) {
-//            Text("Register")
-//        }
-
-        Text(
-            text = "Forgot Password?",
-            color = MaterialTheme.colorScheme.primary,
+    ) { innerPadding ->
+        Column(
             modifier = Modifier
-                .clickable {
-                    val intent = Intent(context, ResetPasswordActivity::class.java)
-                    context.startActivity(intent)
-                }
-        )
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Welcome Back!",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
 
+            Spacer(modifier = Modifier.height(32.dp))
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    if (email.isNotBlank() && password.isNotBlank()) {
+                        isLoading = true
+                        loginUser(auth, email, password, context, activity) {
+                            isLoading = false
+                        }
+                    } else {
+                        Toast.makeText(context, "Please enter email and password", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                enabled = !isLoading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text("Login")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Forgot Password?",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable {
+                        context.startActivity(Intent(context, ResetPasswordActivity::class.java))
+                    }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "Don't have an account? Sign up",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable {
+                        context.startActivity(Intent(context, SignUpActivity::class.java))
+                    }
+            )
+        }
     }
 }
 
-private fun loginUser(auth: FirebaseAuth, email: String, password: String, context: Context, activity: ComponentActivity) {
+private fun loginUser(
+    auth: FirebaseAuth,
+    email: String,
+    password: String,
+    context: Context,
+    activity: ComponentActivity,
+    onResult: () -> Unit
+) {
     auth.signInWithEmailAndPassword(email, password)
         .addOnCompleteListener(activity) { task ->
+            onResult()
             if (task.isSuccessful) {
                 Log.d("Login", "signInWithEmail:success")
                 context.startActivity(Intent(context, HomePageActivity::class.java))
@@ -118,3 +176,4 @@ private fun loginUser(auth: FirebaseAuth, email: String, password: String, conte
             }
         }
 }
+

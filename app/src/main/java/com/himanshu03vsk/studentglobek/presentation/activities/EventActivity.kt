@@ -55,6 +55,8 @@ class EventActivity : ComponentActivity() {
         }
     }
 }
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailScreen(
@@ -82,31 +84,19 @@ fun EventDetailScreen(
         }
     }
 
-    // Format the date for better readability
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-//    val formattedStartDate = formatDate(startDate, dateFormat)
-//    val formattedEndDate = formatDate(endDate, dateFormat)
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Event Details",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
+                title = { Text("Event Details", style = MaterialTheme.typography.titleLarge) },
                 actions = {
                     if (currentUserId == ownerId) {
                         IconButton(onClick = { showEditMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Edit/Delete")
+                            Icon(Icons.Default.MoreVert, contentDescription = "More Options")
                         }
 
-                        // Smooth dropdown animation
                         DropdownMenu(
                             expanded = showEditMenu,
-                            onDismissRequest = { showEditMenu = false },
-                            modifier = Modifier.animateContentSize()
+                            onDismissRequest = { showEditMenu = false }
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Edit Event") },
@@ -124,9 +114,8 @@ fun EventDetailScreen(
                                     context.startActivity(intent)
                                 }
                             )
-
                             DropdownMenuItem(
-                                text = { Text("Delete Event") },
+                                text = { Text("Delete Event", color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showEditMenu = false
                                     showDeleteDialog = true
@@ -137,101 +126,85 @@ fun EventDetailScreen(
                 }
             )
         }
-    ) { innerPadding ->
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Event Name
+            // Title
             Text(
                 text = eventName,
-                style = MaterialTheme.typography.headlineLarge,  // Increased size for title
+                style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // Major and Department under the event title
             InfoRow(label = "Major", value = major)
             InfoRow(label = "Department", value = department)
 
-            // Start Date and End Date
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                InfoRow(label = "Start Date", value = startDate)
-                Spacer(modifier = Modifier.width(16.dp))
-                InfoRow(label = "End Date", value = endDate)
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                InfoRow(label = "Start", value = startDate)
+                InfoRow(label = "End", value = endDate)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Description as a separate background card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                shape = MaterialTheme.shapes.medium
+                shape = MaterialTheme.shapes.medium,
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "Description",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text(text = "Description", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Text(text = description, style = MaterialTheme.typography.bodyMedium)
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
 
-            // Register Button
-            if (!isRegistered && currentUserId != ownerId) {
-                Button(
-                    onClick = {
-                        isRegistering = true
-                        currentUserId?.let { uid ->
-                            FirebaseFirestore.getInstance().collection("events")
-                                .document(eventId)
-                                .update("registeredUsers", FieldValue.arrayUnion(uid))
-                                .addOnSuccessListener {
-                                    Toast.makeText(context, "Registered successfully!", Toast.LENGTH_SHORT).show()
-                                    isRegistered = true
-                                }
-                                .addOnFailureListener {
-                                    Toast.makeText(context, "Failed to register: ${it.message}", Toast.LENGTH_SHORT).show()
-                                }
-                                .addOnCompleteListener {
-                                    isRegistering = false
-                                }
-                        }
-                    },
-                    enabled = !isRegistering,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                ) {
-                    Text(text = if (isRegistering) "Registering..." else "Register")
+            if (currentUserId != ownerId) {
+                if (isRegistered) {
+                    Text(
+                        text = "You are registered for this event.",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                } else {
+                    Button(
+                        onClick = {
+                            isRegistering = true
+                            currentUserId?.let { uid ->
+                                FirebaseFirestore.getInstance().collection("events")
+                                    .document(eventId)
+                                    .update("registeredUsers", FieldValue.arrayUnion(uid))
+                                    .addOnSuccessListener {
+                                        Toast.makeText(context, "Registered successfully!", Toast.LENGTH_SHORT).show()
+                                        isRegistered = true
+                                    }
+                                    .addOnFailureListener {
+                                        Toast.makeText(context, "Registration failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .addOnCompleteListener {
+                                        isRegistering = false
+                                    }
+                            }
+                        },
+                        enabled = !isRegistering,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (isRegistering) "Registering..." else "Register")
+                    }
                 }
-            } else if (currentUserId != ownerId) {
-                Text(
-                    text = "You are registered for this event.",
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(top = 16.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyLarge
-                )
             }
         }
 
-        // Delete confirmation dialog
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 title = { Text("Delete Event") },
-                text = { Text("Are you sure you want to delete this event? This action cannot be undone.") },
+                text = { Text("Are you sure you want to delete this event? This cannot be undone.") },
                 confirmButton = {
                     TextButton(onClick = {
                         FirebaseFirestore.getInstance().collection("events")
@@ -259,28 +232,12 @@ fun EventDetailScreen(
     }
 }
 
-// Utility function to print date as-is based on its type (String or Timestamp)
-//fun printDateAsIs(date: Any): String {
-//    return when (date) {
-//        is Timestamp -> {
-//            // If it's a Firebase Timestamp, convert it to a String (raw representation)
-//            date.toDate().toString()
-//        }
-//        is String -> {
-//            // If it's already a string, return it as is
-//            date
-//        }
-//        else -> date.toString() // Default case, just return the string representation
-//    }
-//}
-
 @Composable
 fun InfoRow(label: String, value: String) {
-    Row(modifier = Modifier.padding(vertical = 4.dp)) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Text(
-            text = "$label: ",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary)
         )
         Text(
             text = value,

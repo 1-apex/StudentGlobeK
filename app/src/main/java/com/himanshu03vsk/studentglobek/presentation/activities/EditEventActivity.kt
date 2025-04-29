@@ -43,6 +43,7 @@ class EditEventActivity : ComponentActivity() {
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditEventScreen(
@@ -64,98 +65,86 @@ fun EditEventScreen(
     var dept by remember { mutableStateOf(department) }
     var isSaving by remember { mutableStateOf(false) }
 
-    val dateFormat = SimpleDateFormat("MM-dd-yyyy", Locale.US)
+    val dateFormat = SimpleDateFormat("MM-dd-yyyy", Locale.getDefault())
 
-    // Function to show DatePicker dialog
     fun showDatePickerDialog(onDateSet: (String) -> Unit) {
         val calendar = Calendar.getInstance()
-        val datePickerDialog = DatePickerDialog(
+        DatePickerDialog(
             context,
-            { _, year, month, dayOfMonth ->
+            { _, year, month, day ->
                 val date = Calendar.getInstance().apply {
-                    set(year, month, dayOfMonth)
+                    set(year, month, day)
                 }.time
-                val formattedDate = dateFormat.format(date) // Format the date
-                onDateSet(formattedDate)
+                onDateSet(dateFormat.format(date))
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
             calendar.get(Calendar.DAY_OF_MONTH)
-        )
-        datePickerDialog.show()
+        ).show()
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Edit Event") })
+            TopAppBar(
+                title = { Text("Edit Event", style = MaterialTheme.typography.titleLarge) }
+            )
         }
     ) { padding ->
         Column(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Event Name Field
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Event Name") },
-                modifier = Modifier.fillMaxWidth() // Ensure full width
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
 
-            // Description Field
             OutlinedTextField(
                 value = desc,
                 onValueChange = { desc = it },
                 label = { Text("Description") },
-                modifier = Modifier.fillMaxWidth() // Ensure full width
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 5
             )
 
-            // Start Date Picker Button
-            Button(
-                onClick = {
-                    showDatePickerDialog { formattedDate ->
-                        start = formattedDate
-                    }
-                },
-                modifier = Modifier.fillMaxWidth() // Ensure full width
+            OutlinedButton(
+                onClick = { showDatePickerDialog { start = it } },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = if (start.isEmpty()) "Select Start Date" else "Start Date: $start")
+                Text(if (start.isEmpty()) "Select Start Date" else "Start Date: $start")
             }
 
-            // End Date Picker Button
-            Button(
-                onClick = {
-                    showDatePickerDialog { formattedDate ->
-                        end = formattedDate
-                    }
-                },
-                modifier = Modifier.fillMaxWidth() // Ensure full width
+            OutlinedButton(
+                onClick = { showDatePickerDialog { end = it } },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = if (end.isEmpty()) "Select End Date" else "End Date: $end")
+                Text(if (end.isEmpty()) "Select End Date" else "End Date: $end")
             }
 
-            // Major Field
             OutlinedTextField(
                 value = maj,
                 onValueChange = { maj = it },
                 label = { Text("Major") },
-                modifier = Modifier.fillMaxWidth() // Ensure full width
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
 
-            // Department Field
             OutlinedTextField(
                 value = dept,
                 onValueChange = { dept = it },
                 label = { Text("Department") },
-                modifier = Modifier.fillMaxWidth() // Ensure full width
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Save Changes Button
             Button(
                 onClick = {
                     isSaving = true
@@ -172,7 +161,7 @@ fun EditEventScreen(
                         .document(eventId)
                         .update(updates)
                         .addOnSuccessListener {
-                            Toast.makeText(context, "Event updated!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Event updated successfully!", Toast.LENGTH_SHORT).show()
                             (context as? ComponentActivity)?.finish()
                         }
                         .addOnFailureListener {
@@ -183,9 +172,19 @@ fun EditEventScreen(
                         }
                 },
                 enabled = !isSaving,
-                modifier = Modifier.fillMaxWidth() // Ensure full width
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
             ) {
-                Text(if (isSaving) "Saving..." else "Save Changes")
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text("Save Changes")
+                }
             }
         }
     }

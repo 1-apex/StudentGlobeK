@@ -1,4 +1,4 @@
-package com.himanshu03vsk.studentglobek.presentation.activities
+package com.himanshu03vsk.studentglobek.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,11 +16,12 @@ class SearchPeersViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
 
     fun searchPeers(query: String) {
+        val normalizedQuery = query.lowercase()
         viewModelScope.launch {
             db.collection("users")
-                .orderBy("name")
-                .startAt(query.toTitleCase())
-                .endAt(query.toTitleCase() + "\uf8ff")
+                .orderBy("nameLowerCase")
+                .startAt(normalizedQuery)
+                .endAt(normalizedQuery + "\uf8ff")
                 .get()
                 .addOnSuccessListener { documents ->
                     val users = documents.mapNotNull { it.toObject(User::class.java) }
@@ -31,6 +32,7 @@ class SearchPeersViewModel : ViewModel() {
                 }
         }
     }
+
 
     fun getAllUsers() {
         viewModelScope.launch {
@@ -46,10 +48,4 @@ class SearchPeersViewModel : ViewModel() {
                 }
         }
     }
-
-    private fun String.toTitleCase(): String {
-        return this.split(" ")
-            .joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
-    }
-
 }
